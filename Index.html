@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Crosscheck Prototype</title>
+<style>
+:root{--bg:#111214;--panel:#1a1c20;--text:#f4f4f5;--muted:#a1a1aa;--line:#34363b;--good:#538d4e;--bad:#b91c1c}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:520px;margin:auto;padding:28px 18px 50px} h1{text-align:center;letter-spacing:.14em;margin:4px 0 3px;font-size:28px}
+.sub{text-align:center;color:var(--muted);margin-bottom:24px}.rule{background:var(--panel);border:1px solid var(--line);padding:13px 14px;border-radius:12px;font-size:14px;line-height:1.4}
+#rows{margin:22px 0 16px;display:grid;gap:9px}.row{display:grid;grid-template-columns:1fr 72px;gap:9px;align-items:center}
+.word{height:52px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;padding:0 14px;letter-spacing:.22em;font-weight:700;font-size:20px}
+.score{height:52px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800}
+.empty{color:#555}.entry{display:flex;gap:9px} input{flex:1;height:52px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:20px;text-transform:uppercase;letter-spacing:.15em;padding:0 14px;outline:none}
+button{height:52px;border:0;border-radius:9px;font-weight:800;font-size:15px;padding:0 18px;cursor:pointer}#guessBtn{background:#f4f4f5;color:#111}
+#msg{min-height:26px;text-align:center;margin:15px 0;font-weight:650}.small{text-align:center;color:var(--muted);font-size:13px}
+#restart{display:none;margin:14px auto 0}.win{color:#86efac}.lose{color:#fca5a5}
+details{margin-top:26px;color:var(--muted);font-size:13px}code{color:#ddd}
+</style>
+</head>
+<body>
+<main>
+<h1>CROSSCHECK</h1>
+<div class="sub">Functional prototype</div>
+<div class="rule"><b>Guess the hidden five-letter word.</b> After each guess you get <b>Letters · Placed</b>. “Letters” counts shared letters one-to-one, including duplicates. “Placed” counts exact-position matches.</div>
+<div id="rows"></div>
+<div class="entry"><input id="guess" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Five letter guess"><button id="guessBtn">GUESS</button></div>
+<div id="msg"></div>
+<div class="small">Six guesses. Prototype word list validates accepted guesses.</div>
+<button id="restart">NEW TEST GAME</button>
+<details><summary>Prototype integrity</summary><p>The secret is selected once per game and stored in game state. Scores are generated only by <code>score(answer, guess)</code>. The UI never supplies scores manually. Before each render, the program recomputes the entire history and throws an error if any stored score differs.</p></details>
+</main>
+<script>
+"use strict";
+
+// Curated common-word prototype dictionary. Answers and guesses may contain duplicates.
+const WORDS = [
+"about","above","actor","acute","admit","adopt","adult","after","again","agent","agree","ahead","alarm","album","alert","alien","align","alike","alive","allow","alone","along","alter","among","anger","angle","angry","apart","apple","apply","arena","argue","arise","array","aside","asset","audio","audit","avoid","award","aware",
+"baker","basic","beach","began","begin","being","below","bench","birth","black","blame","blind","block","blood","board","brain","brand","bread","break","breed","brief","bring","broad","broke","brown","build","buyer",
+"cabin","cable","carry","catch","cause","chain","chair","chart","chase","cheap","check","chest","chief","child","chill","china","choir","civil","claim","class","clean","clear","clerk","click","climb","clock","close","cloud","coach","coast","could","count","court","cover","craft","crash","cream","crime","cross","crowd","crown","curve","cycle",
+"daily","dance","death","delay","depth","dirty","doubt","dozen","draft","drama","dream","dress","drink","drive","drove","dying",
+"eager","early","earth","eight","elite","empty","enemy","enjoy","enter","entry","equal","error","event","every","exact","exist","extra",
+"faith","false","fault","fiber","field","fifth","fifty","fight","final","first","fixed","flame","flash","fleet","flesh","flier","float","floor","focus","force","forth","forty","forum","found","frame","fresh","front","fruit","fully","funny",
+"giant","given","glass","globe","going","grace","grade","grand","grant","grass","great","green","gross","group","grown","guard","guess","guest","guide",
+"happy","heart","heavy","hence","horse","hotel","house","human",
+"ideal","image","index","inner","input","issue",
+"joint","judge",
+"known",
+"label","large","laser","later","laugh","layer","learn","least","leave","legal","lemon","level","light","limit","local","logic","loose","lucky","lunch",
+"major","maker","march","match","maybe","mayor","metal","might","minor","model","money","month","moral","motor","mount","mouse","mouth","movie","music",
+"never","night","noise","north","novel","nurse",
+"occur","ocean","offer","often","order","other","ought","outer","owner",
+"paint","panel","paper","party","peace","phase","phone","photo","piece","pilot","pitch","place","plain","plane","plant","plate","point","pound","power","press","price","pride","prime","print","prior","prize","proof","proud",
+"queen","quick","quiet","quite",
+"radio","raise","range","rapid","ratio","reach","ready","refer","right","rival","river","rough","round","route","royal","rural",
+"scale","scene","scope","score","sense","serve","seven","shall","shape","share","sharp","sheep","sheet","shelf","shell","shift","shine","shire","shirt","shock","shoot","short","shown","sight","since","sixth","sixty","skill","sleep","slide","small","smart","smile","solid","solve","sorry","sound","south","space","speak","speed","spend","spent","split","sport","staff","stage","stand","start","state","steam","steel","stick","still","stock","stone","store","storm","story","strip","stuck","study","stuff","style","sugar","suite","super","sweet",
+"table","taken","taste","teach","teeth","thank","their","theme","there","thick","thing","think","third","those","three","throw","tight","title","today","topic","total","touch","tough","tower","track","trade","train","treat","trend","trial","tribe","truck","truly","trust","truth","twice",
+"under","union","unity","until","upper","urban","usual",
+"valid","value","video","visit","vital","voice",
+"waste","watch","water","wheel","where","which","while","white","whole","whose","woman","world","worry","worse","worst","worth","would","write","wrong",
+"young"
+];
+const SET = new Set(WORDS);
+const MAX = 6;
+
+function score(answer, guess){
+  const ac = {}, gc = {};
+  for(const c of answer) ac[c]=(ac[c]||0)+1;
+  for(const c of guess) gc[c]=(gc[c]||0)+1;
+  let letters=0, placed=0;
+  for(const c of Object.keys(gc)) letters += Math.min(gc[c], ac[c]||0);
+  for(let i=0;i<5;i++) if(answer[i]===guess[i]) placed++;
+  return [letters,placed];
+}
+function same(a,b){return a[0]===b[0]&&a[1]===b[1]}
+function assertHistory(){
+  for(const h of state.history){
+    if(!same(score(state.answer,h.guess),h.score)) throw new Error("History integrity failure");
+  }
+}
+function chooseAnswer(){
+  // Deterministic per newly-created game seed, then fixed in state.
+  return WORDS[Math.floor(Math.random()*WORDS.length)];
+}
+let state={answer:chooseAnswer(),history:[],done:false};
+
+function render(){
+  assertHistory();
+  const rows=document.getElementById("rows"); rows.innerHTML="";
+  for(let i=0;i<MAX;i++){
+    const h=state.history[i];
+    const r=document.createElement("div"); r.className="row";
+    r.innerHTML=h
+      ? `<div class="word">${h.guess.toUpperCase()}</div><div class="score">${h.score[0]} · ${h.score[1]}</div>`
+      : `<div class="word empty">_____</div><div class="score empty">·</div>`;
+    rows.appendChild(r);
+  }
+  document.getElementById("guess").disabled=state.done;
+  document.getElementById("guessBtn").disabled=state.done;
+  document.getElementById("restart").style.display=state.done?"block":"none";
+}
+function submit(){
+  if(state.done)return;
+  const input=document.getElementById("guess");
+  const g=input.value.toLowerCase().trim();
+  const msg=document.getElementById("msg");
+  if(!/^[a-z]{5}$/.test(g)){msg.textContent="Enter exactly five letters.";return;}
+  if(!SET.has(g)){msg.textContent="Not in the prototype word list.";return;}
+  if(state.history.some(h=>h.guess===g)){msg.textContent="You already guessed that word.";return;}
+  const s=score(state.answer,g);
+  state.history.push({guess:g,score:s});
+  assertHistory();
+  input.value="";
+  if(g===state.answer){
+    state.done=true; msg.className="win"; msg.textContent=`Solved in ${state.history.length}/6.`;
+  }else if(state.history.length===MAX){
+    state.done=true; msg.className="lose"; msg.textContent=`Answer: ${state.answer.toUpperCase()}`;
+  }else{
+    msg.className=""; msg.textContent=`${MAX-state.history.length} guesses remaining.`;
+  }
+  render(); input.focus();
+}
+document.getElementById("guessBtn").onclick=submit;
+document.getElementById("guess").addEventListener("keydown",e=>{if(e.key==="Enter")submit()});
+document.getElementById("restart").onclick=()=>{state={answer:chooseAnswer(),history:[],done:false};document.getElementById("msg").textContent="";document.getElementById("msg").className="";render();document.getElementById("guess").disabled=false;document.getElementById("guess").focus()};
+render();
+</script>
+</body>
+</html>
